@@ -18,12 +18,13 @@ app.get('/', (request, response) => {
 app.get('/users', db.getUsers)
 app.get('/users/:id', db.getUserById)
 app.post('/register', db.createUser)
-app.put('/update/:id', db.updateUser)
-app.delete('/delete/:id', db.deleteUser)
+app.put('/update/:username', db.updateUser)
+// app.delete('/delete/:id', db.deleteUser)
 app.post('/login', db.login)
 app.post('/forgetPassword', db.forgetPassword)
 app.get('/userByToken', db.getUserByToken)
 app.post('/resetPassword/:username', db.resetPassword)
+app.post('/changePassword/:username', db.changePassword)
 
 app.listen(port, () => {
   console.log(`App running on port ${port}.`)
