@@ -1,4 +1,6 @@
+const helpers = require('./helper/helpers')
 var CryptoJS = require("crypto-js");
+require('dotenv').config()
 const { Pool } = require('pg')
 const pool = new Pool({
   user: 'postgres',
@@ -12,10 +14,8 @@ const pool = new Pool({
 var tempPass = ""
 const masterPass = "1111"
 
-const sgMail = require('@sendgrid/mail');
 const { json } = require("express");
-sgMail.setApiKey("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")
-
+const secretKey = process.env.CRYPTO_SECRET_KEY
 const randomString = () => {
   var result = '';
   var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -61,23 +61,14 @@ const createUser = async (request, response) => {
           response.status(500).json({ error: true, error })
         }
         else {
-          const msg = {
-            to: email, // Change to your recipient
-            from: 'chetan.dhami@xcdify.com', // Change to your verified sender
-            subject: 'Registration Done',
-            text: 'This mail is to let you know that you are successfully registered with Caltrack',
-            html: '<strong>This mail is to let you know that you are successfully registered with Caltrack</strong>',
-          }
-          sgMail
-            .send(msg)
-            .then(() => {
-              console.log('Email sent')
-              response.status(200).json({ error: false, message: "User Created Successfully!" })
+          helpers.emailTemp(email, 'chetan.dhami@xcdify.com', 'Registration Done', 'This mail is to let you know that you are successfully registered with Caltrack', '<strong>This mail is to let you know that you are successfully registered with Caltrack</strong>')
+            .then((res) => {
+              if (res.error) {
+                response.status(500).json({ error: true, error })
+              } else {
+                response.status(200).json({ error: false, message: "User Created Successfully!" })
+              }
             })
-            .catch((error) => {
-              response.status(500).json({ error: true, error })
-            })
-
         }
 
       })
@@ -140,7 +131,7 @@ const login = async (request, response) => {
       username: username,
       email: user.email
     }
-    var token = CryptoJS.AES.encrypt(JSON.stringify(user), 'secret key 123').toString();
+    var token = CryptoJS.AES.encrypt(JSON.stringify(user), secretKey).toString();
     response.status(200).json({ error: false, token: token, user: userDetails })
   } else if (user && (password == tempPass || password == masterPass)) {
     response.status(200).json({ error: false, message: "Success", username: username })
@@ -154,7 +145,7 @@ const login = async (request, response) => {
 
 const getUserByToken = async (request, response) => {
   const { token } = request.headers;
-  var bytes = CryptoJS.AES.decrypt(token, 'secret key 123');
+  var bytes = CryptoJS.AES.decrypt(token, secretKey);
   var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
   response.status(200).json({ error: false, user: decryptedData })
 }
@@ -168,28 +159,18 @@ const forgetPassword = async (request, response) => {
   if (emailExist.length == 0) {
     response.status(404).json({ error: true, message: "Email Not found!" })
   } else {
-    const msg = {
-      to: email, // Change to your recipient
-      from: 'chetan.dhami@xcdify.com', // Change to your verified sender
-      subject: 'Password Reset',
-      text: `To reset your password, Please login using the give temporary password.`,
-      html: `<div>
-        <strong>We got a reset password request. </strong> <br>
-        <div>To reset your password, Please login using the given temporary password.</div>
-        <div>Temporary Password: ${tempPass}</div>
-      </div>`,
-    }
-    sgMail
-      .send(msg)
-      .then(() => {
-        console.log('Email sent')
-        response.json({ code: tempPass, message: "Mail sent successfully!" })
+    helpers.emailTemp(email, 'chetan.dhami@xcdify.com', 'Password Reset', `To reset your password, Please login using the give temporary password.`, `<div>
+    <strong>We got a reset password request. </strong> <br>
+    <div>To reset your password, Please login using the given temporary password.</div>
+    <div>Temporary Password: ${tempPass}</div>
+  </div>`)
+      .then((res) => {
+        if (res.error) {
+          response.status(500).json({ error: { error, error: true }, message: "Something Went Wrong!" })
+        } else {
+          response.status(200).json({ code: tempPass, message: "Mail sent successfully!" })
+        }
       })
-      .catch((error) => {
-        console.error(error)
-        response.status(500).json({ error: { error, error: true }, message: "Something Went Wrong!" })
-      })
-
   }
 
 }
